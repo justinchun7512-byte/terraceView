@@ -1,0 +1,116 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-04-08T16:02:59.769Z",
+  "activeFeatures": [
+    "mvp",
+    "frontend"
+  ],
+  "primaryFeature": "mvp",
+  "features": {
+    "mvp": {
+      "phase": "plan",
+      "matchRate": null,
+      "iterationCount": 0,
+      "startedAt": "2026-04-09T10:00:00.000Z",
+      "documents": {
+        "plan": "docs/01-plan/features/mvp.plan.md"
+      }
+    },
+    "frontend": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-08T15:41:33.649Z",
+        "lastUpdated": "2026-04-08T16:02:59.769Z"
+      },
+      "lastFile": "/Users/cih7601hotmail.com/프로젝트폴더/인테리어_테스트/frontend/src/components/MaterialPanel.tsx"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-04-08T15:32:06.068Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-04-08T16:02:59.769Z"
+  },
+  "history": [
+    {
+      "action": "plan_created",
+      "feature": "mvp",
+      "timestamp": "2026-04-09T10:00:00.000Z"
+    },
+    {
+      "timestamp": "2026-04-08T15:41:33.649Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:41:56.626Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:42:01.198Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:47:54.987Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:50:25.472Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:50:35.903Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:50:47.915Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:50:58.847Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T15:51:33.075Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T16:02:34.091Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-08T16:02:59.769Z",
+      "feature": "frontend",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}
