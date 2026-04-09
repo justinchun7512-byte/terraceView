@@ -1,9 +1,7 @@
-"""고품질 바닥재 합성 서비스 - 서버사이드 이미지 프로세싱 v2
+"""고품질 바닥재 합성 서비스
 
-1. 텍스처 변형본 여러개 생성 (회전/플립/색조)
-2. 랜덤 배치 + 오버랩 알파 블렌딩으로 이음새 제거
-3. 원본 조명 가볍게 적용
-4. 안쪽 페더링으로 깔끔한 경계
+빠른 미리보기: 서버사이드 타일링 + 조명 (0.1초)
+AI 실사 합성: 미리보기 결과 → Gemini로 자연스럽게 리파인 (10~20초)
 """
 import base64
 import io
@@ -13,6 +11,13 @@ import numpy as np
 from typing import List, Tuple, Optional
 
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance, ImageChops
+
+try:
+    from google import genai
+    from google.genai import types
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
 
 
 def polygon_to_mask(polygon: List[dict], width: int, height: int) -> Image.Image:
@@ -162,6 +167,85 @@ def _inward_feather_mask(mask: Image.Image, radius: int = 4) -> Image.Image:
     return Image.fromarray(np.minimum(mask_arr, blur_arr).astype(np.uint8))
 
 
+def _precomposite(
+    original: Image.Image,
+    texture: Image.Image,
+    mask: Image.Image,
+    tile_scale: float,
+    for_ai: bool = False,
+) -> Image.Image:
+    """빠른 미리보기용 사전 합성
+
+    for_ai=True: AI 리파인용 (조명 약하게 → 재료 색상 보존)
+    for_ai=False: 최종 미리보기용 (조명 반영)
+    """
+    w, h = original.size
+    tile_w = max(int(w * tile_scale), 32)
+
+    variants = _create_tile_variants(texture, tile_w)
+    tiled = _tile_with_overlap_blend(variants, w, h)
+
+    if for_ai:
+        # AI용: 조명 최소화하여 재료 원본 색상 최대 보존
+        lit_tiled = _apply_light_luminance(original, tiled, strength=0.10)
+    else:
+        lit_tiled = _apply_light_luminance(original, tiled, strength=0.35)
+
+    feathered = _inward_feather_mask(mask, radius=4)
+    return Image.composite(lit_tiled, original, feathered)
+
+
+async def _refine_with_ai(
+    pre_composited: Image.Image,
+    texture: Image.Image,
+    material_name: str,
+    api_key: str,
+) -> Image.Image:
+    """사전 합성 이미지를 AI로 자연스럽게 리파인"""
+    if not GENAI_AVAILABLE:
+        raise RuntimeError("google-genai 패키지가 필요합니다")
+
+    client = genai.Client(api_key=api_key)
+
+    img_bytes = io.BytesIO()
+    pre_composited.save(img_bytes, format="JPEG", quality=92)
+
+    tex_bytes = io.BytesIO()
+    texture.resize((512, 512), Image.LANCZOS).save(tex_bytes, format="JPEG", quality=90)
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-image",
+        contents=[
+            types.Part.from_text(text=
+                f"[MATERIAL] This is the exact flooring material '{material_name}' - note the specific colors, shapes, and sizes:"
+            ),
+            types.Part.from_bytes(data=tex_bytes.getvalue(), mime_type="image/jpeg"),
+            types.Part.from_text(text=
+                "[COMPOSITED PHOTO] The material above has been placed on this terrace floor. "
+                "Make it look photorealistic:"
+            ),
+            types.Part.from_bytes(data=img_bytes.getvalue(), mime_type="image/jpeg"),
+            types.Part.from_text(text=
+                "STRICT RULES - VIOLATING ANY RULE IS UNACCEPTABLE:"
+                "\n- NEVER change the material. The floor must use the EXACT SAME material from the [MATERIAL] image - same colors (pink, white, gray, beige pebbles), same shapes, same textures."
+                "\n- NEVER change the size of pieces. Every pebble/stone/tile must stay the EXACT SAME SIZE as in the composited photo."
+                "\n- NEVER darken the image. Maintain the same overall brightness."
+                "\n- Your ONLY job: blend the floor naturally with the surrounding scene. Add subtle 3D depth between pieces, remove any visible repeating seam lines, and make the edges where floor meets walls/bench look like a real installation."
+                "\n- Keep the background scene (walls, bench, plants, sky, pergola) unchanged."
+            ),
+        ],
+        config=types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+        ),
+    )
+
+    for part in response.candidates[0].content.parts:
+        if part.inline_data and part.inline_data.data:
+            return Image.open(io.BytesIO(part.inline_data.data)).convert("RGB")
+
+    raise RuntimeError("AI가 이미지를 생성하지 못했습니다")
+
+
 async def composite_with_ai(
     image_b64: str,
     polygon: List[dict],
@@ -170,7 +254,7 @@ async def composite_with_ai(
     tile_scale: float = 0.25,
     api_key: str = "",
 ) -> Tuple[str, str, float]:
-    """고품질 서버사이드 합성"""
+    """사전 합성 → AI 리파인"""
     start = time.time()
 
     original = base64_to_image(image_b64).convert("RGB")
@@ -182,23 +266,24 @@ async def composite_with_ai(
     texture = base64_to_image(material_image_b64).convert("RGB")
     mask = polygon_to_mask(polygon, w, h)
 
-    tile_w = max(int(w * tile_scale), 32)
-    print(f"[Composite] size={w}x{h}, tile_scale={tile_scale}, tile_px={tile_w}")
+    print(f"[Composite] size={w}x{h}, tile_scale={tile_scale}")
 
-    # Step 1: 타일 변형본 생성
-    variants = _create_tile_variants(texture, tile_w)
+    # Step 1: 사전 합성
+    pre_composited = _precomposite(original, texture, mask, tile_scale, for_ai=False)
 
-    # Step 2: 랜덤 배치 + 오버랩 블렌딩
-    tiled = _tile_with_overlap_blend(variants, w, h)
+    # Step 2: AI 리파인 (API 키가 있으면)
+    if api_key and GENAI_AVAILABLE:
+        # AI용은 조명 약하게 (재료 색상 보존)
+        pre_for_ai = _precomposite(original, texture, mask, tile_scale, for_ai=True)
+        try:
+            ai_result = await _refine_with_ai(pre_for_ai, texture, material_name, api_key)
+            if ai_result.size != (w, h):
+                ai_result = ai_result.resize((w, h), Image.LANCZOS)
+            elapsed = time.time() - start
+            return image_to_base64(ai_result), "gemini-refined", elapsed
+        except Exception as e:
+            print(f"[AI Refine Failed] {e}, falling back to server composite")
 
-    # Step 3: 그림자/음영 적용 (35% - 그림자만 선택적 적용)
-    lit_tiled = _apply_light_luminance(original, tiled, strength=0.35)
-
-    # Step 4: 안쪽 페더링
-    feathered = _inward_feather_mask(mask, radius=4)
-
-    # Step 5: 합성
-    result = Image.composite(lit_tiled, original, feathered)
-
+    # AI 실패 시 사전 합성 결과 반환
     elapsed = time.time() - start
-    return image_to_base64(result), "server-composite", elapsed
+    return image_to_base64(pre_composited), "server-composite", elapsed

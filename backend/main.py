@@ -20,7 +20,7 @@ app = FastAPI(title="TerraceView API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://your-domain.vercel.app"],
+    allow_origins=["*"],  # TODO: 프로덕션에서는 특정 도메인만 허용
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,12 +78,15 @@ async def composite_floor(req: CompositeRequest):
     if not req.material_image:
         raise HTTPException(400, "바닥재 텍스처 이미지를 업로드해주세요")
 
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+
     result_b64, provider, elapsed = await composite_with_ai(
         image_b64=req.image,
         polygon=polygon_dicts,
         material_name=req.material_name,
         material_image_b64=req.material_image,
         tile_scale=req.tile_scale,
+        api_key=api_key,
     )
 
     return CompositeResponse(
