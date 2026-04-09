@@ -15,7 +15,7 @@ interface Props {
   onAdd: (mat: UploadedMaterial) => void
   onRemove: (id: string) => void
   selected: string | null
-  onSelect: (src: string) => void
+  onSelect: (src: string, name?: string) => void
   disabled?: boolean
 }
 
@@ -113,7 +113,7 @@ export default function MaterialPanel({ materials, onAdd, onRemove, selected, on
           {materials.map(mat => (
             <div key={mat.id} className="relative group">
               <button
-                onClick={() => !disabled && onSelect(mat.src)}
+                onClick={() => !disabled && onSelect(mat.src, mat.name)}
                 disabled={disabled}
                 className={`
                   w-full rounded-xl overflow-hidden text-left transition-all border-2

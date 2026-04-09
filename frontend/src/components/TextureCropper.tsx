@@ -24,6 +24,7 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
   const [rect, setRect] = useState<Rect | null>(null)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [displayScale, setDisplayScale] = useState(1)
+  const [materialName, setMaterialName] = useState(fileName)
 
   // 이미지 로드
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
 
     // 크롭 영역이 없거나 너무 작으면 원본 사용
     if (!rect || rect.w < 10 || rect.h < 10) {
-      onConfirm(imageSrc, fileName)
+      onConfirm(imageSrc, materialName || fileName)
       return
     }
 
@@ -144,8 +145,8 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
     const ctx = cropCanvas.getContext('2d')!
     ctx.drawImage(img, realX, realY, realW, realH, 0, 0, realW, realH)
 
-    onConfirm(cropCanvas.toDataURL('image/jpeg', 0.92), fileName)
-  }, [rect, displayScale, imageSrc, fileName, onConfirm])
+    onConfirm(cropCanvas.toDataURL('image/jpeg', 0.92), materialName || fileName)
+  }, [rect, displayScale, imageSrc, fileName, materialName, onConfirm])
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
@@ -171,6 +172,19 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           />
+        </div>
+
+        {/* 바닥재 이름 입력 */}
+        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+          <label className="text-xs font-medium text-gray-600 mb-1.5 block">바닥재 이름 (AI 합성 시 활용)</label>
+          <input
+            type="text"
+            value={materialName}
+            onChange={e => setMaterialName(e.target.value)}
+            placeholder="예: 화이트 대리석 타일, IPE 원목 데크"
+            className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
+          <p className="text-xs text-gray-400 mt-1">구체적으로 적을수록 AI 합성 결과가 정확해집니다</p>
         </div>
 
         {/* 하단 버튼 */}

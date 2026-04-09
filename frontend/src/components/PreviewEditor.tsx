@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { RotateCcw, Download, Sliders, MousePointer, Wand2, ZoomIn } from 'lucide-react'
+import { RotateCcw, Download, Sliders, MousePointer, ZoomIn, Sparkles } from 'lucide-react'
 import MaterialPanel from './MaterialPanel'
 import PolygonEditor from './PolygonEditor'
 import { TerraceCanvasEngine } from '@/lib/canvas-engine'
 import type { Point } from '@/lib/canvas-engine'
-import { segmentFloor } from '@/lib/api'
+import { compositeFloor } from '@/lib/api'
 
 interface Props {
   imageSrc: string
@@ -19,20 +19,20 @@ interface UploadedMaterial {
   thumbnail: string
 }
 
-type Mode = 'auto' | 'manual'
-
 export default function PreviewEditor({ imageSrc, onReset }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engineRef = useRef<TerraceCanvasEngine | null>(null)
   const [polygon, setPolygon] = useState<Point[]>([])
   const [opacity, setOpacity] = useState(72)
   const [scale, setScale] = useState(35)
-  const [mode, setMode] = useState<Mode>('manual')
-  const [isSegmenting, setIsSegmenting] = useState(false)
+  const [isSegmenting] = useState(false)
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
   const [editingPolygon, setEditingPolygon] = useState(false)
   const [imageSize, setImageSize] = useState({ w: 0, h: 0 })
   const [materials, setMaterials] = useState<UploadedMaterial[]>([])
+  const [isCompositing, setIsCompositing] = useState(false)
+  const [compositeInfo, setCompositeInfo] = useState<{ provider: string; time: number } | null>(null)
+  const [selectedMaterialName, setSelectedMaterialName] = useState<string>('')
 
   // 이미지 로드 및 엔진 초기화
   useEffect(() => {
@@ -45,30 +45,60 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
     })
   }, [imageSrc])
 
-  // AI 자동 세그멘테이션
-  const handleAutoSegment = useCallback(async () => {
-    setIsSegmenting(true)
-    try {
-      const blob = await fetch(imageSrc).then(r => r.blob())
-      const file = new File([blob], 'terrace.jpg', { type: 'image/jpeg' })
-      const result = await segmentFloor(file)
-      setPolygon(result.polygon)
-      engineRef.current?.setMaskPolygon(result.polygon)
-      setMode('auto')
-    } catch {
-      setMode('manual')
-      setEditingPolygon(true)
-    } finally {
-      setIsSegmenting(false)
-    }
-  }, [imageSrc])
-
-  // 바닥재 선택
-  const handleMaterialSelect = useCallback((src: string) => {
+  // 바닥재 선택 (빠른 미리보기: Canvas blend)
+  const handleMaterialSelect = useCallback((src: string, name?: string) => {
     setSelectedMaterial(src)
+    if (name) setSelectedMaterialName(name)
+    setCompositeInfo(null)
     engineRef.current?.setMaskPolygon(polygon)
     engineRef.current?.applyMaterial(src, opacity / 100)
   }, [polygon, opacity])
+
+  // AI 실사 합성
+  const handleAiComposite = useCallback(async () => {
+    if (!polygon.length || !selectedMaterial) return
+    setIsCompositing(true)
+    setCompositeInfo(null)
+    try {
+      // 원본 이미지를 base64로 변환
+      const blob = await fetch(imageSrc).then(r => r.blob())
+      const imageB64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+
+      // 텍스처 이미지 (사용자 업로드 바닥재)
+      let materialImageB64: string | undefined
+      if (selectedMaterial.startsWith('data:')) {
+        materialImageB64 = selectedMaterial
+      }
+
+      if (!materialImageB64) {
+        alert('바닥재 텍스처 이미지를 업로드해주세요')
+        setIsCompositing(false)
+        return
+      }
+
+      const result = await compositeFloor(
+        imageB64,
+        polygon,
+        selectedMaterialName || 'flooring',
+        materialImageB64,
+        scale / 100, // 배율 슬라이더 값을 tile_scale로 전달
+      )
+
+      // AI 결과를 캔버스에 표시
+      const resultSrc = `data:image/png;base64,${result.result_image}`
+      await engineRef.current?.loadBaseImage(resultSrc)
+      setCompositeInfo({ provider: result.provider, time: result.processing_time })
+    } catch (e) {
+      console.error('AI composite failed:', e)
+      alert(`AI 합성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+    } finally {
+      setIsCompositing(false)
+    }
+  }, [imageSrc, polygon, selectedMaterial, selectedMaterialName, scale])
 
   // 불투명도 변경
   const handleOpacityChange = useCallback((val: number) => {
@@ -115,14 +145,6 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
           </button>
           <div className="w-px h-5 bg-gray-200" />
           <button
-            onClick={handleAutoSegment}
-            disabled={isSegmenting}
-            className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-50"
-          >
-            <Wand2 className="w-4 h-4" />
-            {isSegmenting ? 'AI 인식 중...' : 'AI 자동 인식'}
-          </button>
-          <button
             onClick={() => setEditingPolygon(true)}
             className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-800 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
           >
@@ -144,19 +166,29 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
             />
             <span className="text-xs text-gray-400 w-8">{opacity}%</span>
           </div>
-          {/* 배율 */}
+          {/* 타일 크기 */}
           <div className="flex items-center gap-2">
             <ZoomIn className="w-4 h-4 text-gray-400" />
+            <span className="text-xs text-gray-500">타일</span>
             <input
               type="range"
-              min={10}
-              max={100}
+              min={5}
+              max={80}
               value={scale}
               onChange={e => handleScaleChange(Number(e.target.value))}
               className="w-20"
             />
             <span className="text-xs text-gray-400 w-8">{scale}%</span>
           </div>
+          {/* AI 실사 합성 */}
+          <button
+            onClick={handleAiComposite}
+            disabled={isCompositing || polygon.length === 0 || !selectedMaterial}
+            className="flex items-center gap-1.5 text-sm bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Sparkles className="w-4 h-4" />
+            {isCompositing ? 'AI 합성 중...' : 'AI 실사 합성'}
+          </button>
           <button
             onClick={() => engineRef.current?.download()}
             className="flex items-center gap-1.5 text-sm bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
@@ -187,7 +219,7 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
           {polygon.length === 0 && !editingPolygon && (
             <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
               <div className="bg-black/50 text-white text-sm px-4 py-2 rounded-full">
-                AI 자동 인식 또는 수동 선택으로 바닥 영역을 지정하세요
+                수동 선택으로 바닥 영역을 지정하세요
               </div>
             </div>
           )}
@@ -197,6 +229,20 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
                 <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
                 <p className="text-sm text-gray-600">AI가 바닥 영역을 인식하는 중...</p>
               </div>
+            </div>
+          )}
+          {isCompositing && (
+            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3 bg-white rounded-2xl px-8 py-6 shadow-lg">
+                <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
+                <p className="text-sm font-medium text-gray-700">AI 실사 합성 중...</p>
+                <p className="text-xs text-gray-400">15~30초 소요됩니다</p>
+              </div>
+            </div>
+          )}
+          {compositeInfo && (
+            <div className="absolute top-3 left-3 bg-violet-600 text-white text-xs px-3 py-1.5 rounded-full">
+              AI 합성 완료 ({compositeInfo.time}초)
             </div>
           )}
         </div>
