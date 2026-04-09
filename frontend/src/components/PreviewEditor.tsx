@@ -3,9 +3,11 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { RotateCcw, Download, Sliders, MousePointer, ZoomIn, Sparkles } from 'lucide-react'
 import MaterialPanel from './MaterialPanel'
 import PolygonEditor from './PolygonEditor'
+import HistoryPanel from './HistoryPanel'
 import { TerraceCanvasEngine } from '@/lib/canvas-engine'
 import type { Point } from '@/lib/canvas-engine'
 import { compositeFloor } from '@/lib/api'
+import { addHistory } from '@/lib/history'
 
 interface Props {
   imageSrc: string
@@ -92,6 +94,16 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
       const resultSrc = `data:image/png;base64,${result.result_image}`
       await engineRef.current?.loadBaseImage(resultSrc)
       setCompositeInfo({ provider: result.provider, time: result.processing_time })
+
+      // 합성 이력 저장
+      await addHistory(
+        resultSrc,
+        selectedMaterialName || 'flooring',
+        result.provider,
+        result.processing_time,
+        scale / 100,
+      )
+      window.dispatchEvent(new Event('history-updated'))
     } catch (e) {
       console.error('AI composite failed:', e)
       alert(`AI 합성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
@@ -257,6 +269,13 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
           disabled={polygon.length === 0}
         />
       </div>
+
+      {/* 합성 이력 */}
+      <HistoryPanel
+        onSelect={async (thumbnail) => {
+          await engineRef.current?.loadBaseImage(thumbnail)
+        }}
+      />
     </div>
   )
 }
