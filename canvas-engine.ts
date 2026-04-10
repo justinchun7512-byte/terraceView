@@ -12,6 +12,7 @@ export class TerraceCanvasEngine {
   private maskPolygon: Point[] = []
   private currentMaterial: HTMLImageElement | null = null
   private opacity: number = 0.72
+  private tileScale: number = 0.15  // 기본: 캔버스 대비 15% (자연스러운 크기)
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -64,6 +65,15 @@ export class TerraceCanvasEngine {
     this.render()
   }
 
+  updateTileScale(scale: number): void {
+    this.tileScale = scale
+    this.render()
+  }
+
+  getTileScale(): number {
+    return this.tileScale
+  }
+
   reset(): void {
     this.currentMaterial = null
     this.drawBase()
@@ -106,11 +116,11 @@ export class TerraceCanvasEngine {
     const W = canvas.width, H = canvas.height
     const mat = this.currentMaterial!
 
-    // 텍스처 타일링 오프스크린
+    // 텍스처 타일링 오프스크린 (tileScale로 크기 조절)
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
     const texCtx = texCanvas.getContext('2d')!
-    const tileW = Math.min(W * 0.35, 320)
+    const tileW = W * this.tileScale
     const tileH = tileW * (mat.naturalHeight / mat.naturalWidth)
     for (let tx = 0; tx < W + tileW; tx += tileW)
       for (let ty = 0; ty < H + tileH; ty += tileH)

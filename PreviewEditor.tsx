@@ -24,6 +24,7 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
   const [editingPolygon, setEditingPolygon] = useState(false)
   const [imageSize, setImageSize] = useState({ w: 0, h: 0 })
+  const [tileScale, setTileScale] = useState(15)  // 기본 15% (자연스러운 크기)
 
   // 이미지 로드 및 엔진 초기화
   useEffect(() => {
@@ -68,6 +69,12 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
     engineRef.current?.updateOpacity(val / 100)
   }, [])
 
+  // 텍스처 크기 변경
+  const handleTileScaleChange = useCallback((val: number) => {
+    setTileScale(val)
+    engineRef.current?.updateTileScale(val / 100)
+  }, [])
+
   // 폴리곤 수동 편집 완료
   const handlePolygonDone = useCallback((pts: Point[]) => {
     setPolygon(pts)
@@ -108,17 +115,32 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-gray-400" />
-            <input
-              type="range"
-              min={30}
-              max={100}
-              value={opacity}
-              onChange={e => handleOpacityChange(Number(e.target.value))}
-              className="w-24"
-            />
-            <span className="text-xs text-gray-400 w-8">{opacity}%</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500">크기</span>
+              <input
+                type="range"
+                min={5}
+                max={50}
+                value={tileScale}
+                onChange={e => handleTileScaleChange(Number(e.target.value))}
+                className="w-20"
+              />
+              <span className="text-xs text-gray-400 w-6">{tileScale}</span>
+            </div>
+            <div className="w-px h-5 bg-gray-200" />
+            <div className="flex items-center gap-1.5">
+              <Sliders className="w-4 h-4 text-gray-400" />
+              <input
+                type="range"
+                min={30}
+                max={100}
+                value={opacity}
+                onChange={e => handleOpacityChange(Number(e.target.value))}
+                className="w-20"
+              />
+              <span className="text-xs text-gray-400 w-8">{opacity}%</span>
+            </div>
           </div>
           <button
             onClick={() => engineRef.current?.download()}
