@@ -182,7 +182,7 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
             value={materialName}
             onChange={e => setMaterialName(e.target.value)}
             placeholder="예: 화이트 대리석 타일, IPE 원목 데크"
-            className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className="w-full text-sm text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-gray-400"
           />
           <p className="text-xs text-gray-400 mt-1">구체적으로 적을수록 AI 합성 결과가 정확해집니다</p>
         </div>
