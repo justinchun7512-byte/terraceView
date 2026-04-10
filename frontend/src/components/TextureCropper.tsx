@@ -175,16 +175,16 @@ export default function TextureCropper({ imageSrc, fileName, onConfirm, onCancel
         </div>
 
         {/* 바닥재 이름 입력 */}
-        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
-          <label className="text-xs font-medium text-gray-600 mb-1.5 block">바닥재 이름 (AI 합성 시 활용)</label>
+        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <label className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5 block">바닥재 이름 (AI 합성 시 활용)</label>
           <input
             type="text"
             value={materialName}
             onChange={e => setMaterialName(e.target.value)}
             placeholder="예: 화이트 대리석 타일, IPE 원목 데크"
-            className="w-full text-sm text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-gray-400"
+            className="w-full text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
           />
-          <p className="text-xs text-gray-400 mt-1">구체적으로 적을수록 AI 합성 결과가 정확해집니다</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">구체적으로 적을수록 AI 합성 결과가 정확해집니다</p>
         </div>
 
         {/* 하단 버튼 */}
