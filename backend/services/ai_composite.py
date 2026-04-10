@@ -208,11 +208,14 @@ def _precomposite(
 
 async def _refine_with_ai(
     pre_composited: Image.Image,
-    texture: Image.Image,
     material_name: str,
     api_key: str,
 ) -> Image.Image:
-    """사전 합성 이미지를 AI로 자연스럽게 리파인"""
+    """사전 합성 이미지를 AI로 자연스럽게 리파인
+
+    텍스처 원본은 보내지 않음 — AI가 크기를 임의로 변경하는 것을 방지.
+    사전 합성된 이미지만 보내서 "이미 깔린 바닥재를 자연스럽게 다듬어라"고 지시.
+    """
     if not GENAI_AVAILABLE:
         raise RuntimeError("google-genai 패키지가 필요합니다")
 
@@ -221,28 +224,22 @@ async def _refine_with_ai(
     img_bytes = io.BytesIO()
     pre_composited.save(img_bytes, format="JPEG", quality=92)
 
-    tex_bytes = io.BytesIO()
-    texture.resize((512, 512), Image.LANCZOS).save(tex_bytes, format="JPEG", quality=90)
-
     response = client.models.generate_content(
         model="gemini-2.5-flash-image",
         contents=[
             types.Part.from_text(text=
-                f"[MATERIAL] This is the exact flooring material '{material_name}' - note the specific colors, shapes, and sizes:"
-            ),
-            types.Part.from_bytes(data=tex_bytes.getvalue(), mime_type="image/jpeg"),
-            types.Part.from_text(text=
-                "[COMPOSITED PHOTO] The material above has been placed on this terrace floor. "
-                "Make it look photorealistic:"
+                f"This terrace photo already has '{material_name}' flooring installed on the ground area. "
+                "Make it look like a real professional photo:"
             ),
             types.Part.from_bytes(data=img_bytes.getvalue(), mime_type="image/jpeg"),
             types.Part.from_text(text=
-                "STRICT RULES - VIOLATING ANY RULE IS UNACCEPTABLE:"
-                "\n- NEVER change the material. The floor must use the EXACT SAME material from the [MATERIAL] image - same colors (pink, white, gray, beige pebbles), same shapes, same textures."
-                "\n- NEVER change the size of pieces. Every pebble/stone/tile must stay the EXACT SAME SIZE as in the composited photo."
-                "\n- NEVER darken the image. Maintain the same overall brightness."
-                "\n- Your ONLY job: blend the floor naturally with the surrounding scene. Add subtle 3D depth between pieces, remove any visible repeating seam lines, and make the edges where floor meets walls/bench look like a real installation."
-                "\n- Keep the background scene (walls, bench, plants, sky, pergola) unchanged."
+                "STRICT RULES:"
+                "\n- The floor material is ALREADY correctly placed with the RIGHT SIZE and PATTERN. Do NOT resize, reshape, or replace any piece."
+                "\n- ONLY improve realism: add subtle shadows between pieces, smooth the seam lines where tiles repeat, blend edges where floor meets walls/bench naturally."
+                "\n- NEVER darken the image. Keep the same brightness."
+                "\n- NEVER change the background (walls, bench, plants, sky, pergola)."
+                "\n- NEVER change the material type, color, or individual piece size."
+                "\n- Output the same resolution image."
             ),
         ],
         config=types.GenerateContentConfig(
@@ -290,7 +287,7 @@ async def composite_with_ai(
         # AI용은 조명 약하게 (재료 색상 보존), opacity는 항상 1.0 (AI가 자체 처리)
         pre_for_ai = _precomposite(original, texture, mask, tile_scale, opacity=1.0, for_ai=True)
         try:
-            ai_result = await _refine_with_ai(pre_for_ai, texture, material_name, api_key)
+            ai_result = await _refine_with_ai(pre_for_ai, material_name, api_key)
             if ai_result.size != (w, h):
                 ai_result = ai_result.resize((w, h), Image.LANCZOS)
             elapsed = time.time() - start
