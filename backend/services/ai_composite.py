@@ -158,8 +158,11 @@ def _apply_light_luminance(original: Image.Image, tiled: Image.Image, strength: 
     return Image.fromarray(result.clip(0, 255).astype(np.uint8))
 
 
-def _inward_feather_mask(mask: Image.Image, radius: int = 4) -> Image.Image:
-    """안쪽으로만 페더링 (바깥 누출 0%)"""
+def _inward_feather_mask(mask: Image.Image, radius: int = 2) -> Image.Image:
+    """안쪽으로만 페더링 (바깥 누출 0%, 가장자리까지 합성)
+
+    radius를 작게 해서 가장자리 빈 공간을 최소화.
+    """
     eroded = mask.filter(ImageFilter.MinFilter(size=radius * 2 + 1))
     blurred = eroded.filter(ImageFilter.GaussianBlur(radius=radius))
     mask_arr = np.array(mask, dtype=np.float32)
@@ -189,9 +192,10 @@ def _precomposite(
         # AI용: 조명 최소화하여 재료 원본 색상 최대 보존
         lit_tiled = _apply_light_luminance(original, tiled, strength=0.10)
     else:
-        lit_tiled = _apply_light_luminance(original, tiled, strength=0.35)
+        # 최종 합성: 재료 색상 선명하게 + 그림자만 자연스럽게
+        lit_tiled = _apply_light_luminance(original, tiled, strength=0.25)
 
-    feathered = _inward_feather_mask(mask, radius=4)
+    feathered = _inward_feather_mask(mask, radius=2)
     return Image.composite(lit_tiled, original, feathered)
 
 
