@@ -86,6 +86,7 @@ async def composite_floor(req: CompositeRequest):
         material_name=req.material_name,
         material_image_b64=req.material_image,
         tile_scale=req.tile_scale,
+        opacity=req.opacity,
         api_key=api_key,
     )
 

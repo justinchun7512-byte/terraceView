@@ -88,6 +88,7 @@ export default function PreviewEditor({ imageSrc, onReset }: Props) {
         selectedMaterialName || 'flooring',
         materialImageB64,
         scale / 100, // 배율 슬라이더 값을 tile_scale로 전달
+        opacity / 100, // 불투명도 전달
       )
 
       // AI 결과를 캔버스에 표시

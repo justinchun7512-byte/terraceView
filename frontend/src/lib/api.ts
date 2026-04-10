@@ -32,6 +32,7 @@ export async function compositeFloor(
   materialName: string,
   materialImageBase64?: string,
   tileScale?: number,
+  opacity?: number,
 ): Promise<CompositeResult> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000) // 2분 타임아웃
@@ -45,6 +46,7 @@ export async function compositeFloor(
       material_name: materialName,
       material_image: materialImageBase64 || null,
       tile_scale: tileScale ?? 0.25,
+      opacity: opacity ?? 1.0,
     }),
     signal: controller.signal,
   })

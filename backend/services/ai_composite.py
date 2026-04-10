@@ -175,6 +175,7 @@ def _precomposite(
     texture: Image.Image,
     mask: Image.Image,
     tile_scale: float,
+    opacity: float = 1.0,
     for_ai: bool = False,
 ) -> Image.Image:
     """빠른 미리보기용 사전 합성
@@ -196,6 +197,12 @@ def _precomposite(
         lit_tiled = _apply_light_luminance(original, tiled, strength=0.25)
 
     feathered = _inward_feather_mask(mask, radius=2)
+
+    # opacity 적용: 마스크에 opacity를 곱해서 투명도 반영
+    if opacity < 1.0:
+        feathered_arr = np.array(feathered, dtype=np.float32) * opacity
+        feathered = Image.fromarray(feathered_arr.clip(0, 255).astype(np.uint8))
+
     return Image.composite(lit_tiled, original, feathered)
 
 
@@ -256,6 +263,7 @@ async def composite_with_ai(
     material_name: str,
     material_image_b64: Optional[str] = None,
     tile_scale: float = 0.25,
+    opacity: float = 1.0,
     api_key: str = "",
 ) -> Tuple[str, str, float]:
     """사전 합성 → AI 리파인"""
@@ -272,13 +280,15 @@ async def composite_with_ai(
 
     print(f"[Composite] size={w}x{h}, tile_scale={tile_scale}")
 
+    print(f"[Composite] opacity={opacity}")
+
     # Step 1: 사전 합성
-    pre_composited = _precomposite(original, texture, mask, tile_scale, for_ai=False)
+    pre_composited = _precomposite(original, texture, mask, tile_scale, opacity=opacity, for_ai=False)
 
     # Step 2: AI 리파인 (API 키가 있으면)
     if api_key and GENAI_AVAILABLE:
-        # AI용은 조명 약하게 (재료 색상 보존)
-        pre_for_ai = _precomposite(original, texture, mask, tile_scale, for_ai=True)
+        # AI용은 조명 약하게 (재료 색상 보존), opacity는 항상 1.0 (AI가 자체 처리)
+        pre_for_ai = _precomposite(original, texture, mask, tile_scale, opacity=1.0, for_ai=True)
         try:
             ai_result = await _refine_with_ai(pre_for_ai, texture, material_name, api_key)
             if ai_result.size != (w, h):

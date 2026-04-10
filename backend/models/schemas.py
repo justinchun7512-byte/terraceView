@@ -33,6 +33,7 @@ class CompositeRequest(BaseModel):
     material_name: str
     material_image: Optional[str] = None  # base64 encoded texture image
     tile_scale: float = 0.25  # 텍스처 타일 크기 (이미지 대비 비율, 0.1~1.0)
+    opacity: float = 1.0  # 불투명도 (0.0~1.0, 1.0 = 완전 불투명)
 
 
 class CompositeResponse(BaseModel):
